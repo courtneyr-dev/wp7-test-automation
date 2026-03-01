@@ -2,6 +2,11 @@
 
 Runs 123 test steps against a WordPress 7.0 beta site using Playwright. Produces a JSON results file you can view in the included HTML reporter.
 
+The test steps are based on the Make WordPress Test team's call for testing:
+
+- [Help Test WordPress 7.0](https://make.wordpress.org/test/2026/02/20/help-test-wordpress-7-0/)
+- [Test Scrub Schedule for WordPress 7.0](https://make.wordpress.org/test/2026/02/17/test-scrub-schedule-for-wordpress-7-0/)
+
 ## Quick start
 
 ```bash
