@@ -1,0 +1,1375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WordPress 7.0 Test Reporter</title>
+<style>
+  :root {
+    --wp-blue: #2271b1;
+    --wp-blue-dark: #135e96;
+    --wp-green: #00a32a;
+    --wp-red: #d63638;
+    --wp-yellow: #dba617;
+    --wp-gray-0: #f6f7f7;
+    --wp-gray-1: #e2e4e7;
+    --wp-gray-2: #ccd0d4;
+    --wp-gray-5: #787c82;
+    --wp-gray-9: #1e1e1e;
+    --pass: #00a32a;
+    --fail: #d63638;
+    --skip: #787c82;
+    --radius: 6px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, sans-serif;
+    background: var(--wp-gray-0); color: var(--wp-gray-9); line-height: 1.6;
+  }
+  .site-header {
+    background: var(--wp-gray-9); color: #fff; padding: 20px 0;
+    position: sticky; top: 0; z-index: 100;
+    box-shadow: 0 2px 8px rgba(0,0,0,.15);
+  }
+  .site-header .inner {
+    max-width: 960px; margin: 0 auto; padding: 0 20px;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 10px;
+  }
+  .site-header h1 { font-size: 18px; font-weight: 600; }
+  .site-header h1 span { color: var(--wp-blue); }
+  .header-actions { display: flex; gap: 8px; align-items: center; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 16px; border: none; border-radius: var(--radius);
+    font-size: 13px; font-weight: 500; cursor: pointer;
+    transition: background .15s, transform .1s; white-space: nowrap;
+  }
+  .btn:active { transform: scale(.97); }
+  .btn-primary { background: var(--wp-blue); color: #fff; }
+  .btn-primary:hover { background: var(--wp-blue-dark); }
+  .btn-success { background: var(--wp-green); color: #fff; }
+  .btn-success:hover { background: #008a20; }
+  .btn-outline { background: transparent; color: #fff; border: 1px solid rgba(255,255,255,.3); }
+  .btn-outline:hover { border-color: #fff; }
+  .container { max-width: 960px; margin: 0 auto; padding: 20px; }
+  .tabs {
+    display: flex; gap: 4px; margin-bottom: 24px;
+    border-bottom: 2px solid var(--wp-gray-1); padding-bottom: 0;
+  }
+  .tab {
+    padding: 10px 18px; cursor: pointer; border: none; background: none;
+    font-size: 14px; font-weight: 500; color: var(--wp-gray-5);
+    border-bottom: 2px solid transparent; margin-bottom: -2px;
+    transition: color .15s, border-color .15s;
+  }
+  .tab:hover { color: var(--wp-gray-9); }
+  .tab.active { color: var(--wp-blue); border-bottom-color: var(--wp-blue); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+  .card {
+    background: #fff; border: 1px solid var(--wp-gray-1);
+    border-radius: var(--radius); margin-bottom: 16px; overflow: hidden;
+  }
+  .card-header {
+    padding: 14px 18px; background: #fff; border-bottom: 1px solid var(--wp-gray-1);
+    display: flex; align-items: center; justify-content: space-between;
+    cursor: pointer; user-select: none;
+  }
+  .card-header:hover { background: var(--wp-gray-0); }
+  .card-header h2 { font-size: 15px; font-weight: 600; }
+  .card-header .badge {
+    font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 600;
+  }
+  .badge-pass { background: #e6f6e9; color: var(--pass); }
+  .badge-fail { background: #fce4e4; color: var(--fail); }
+  .badge-mixed { background: #fef3cd; color: var(--wp-yellow); }
+  .badge-pending { background: var(--wp-gray-0); color: var(--wp-gray-5); }
+  .card-body { padding: 0; display: none; }
+  .card.open .card-body { display: block; }
+  .card-header .chevron { transition: transform .2s; color: var(--wp-gray-5); }
+  .card.open .card-header .chevron { transform: rotate(180deg); }
+  .test-item {
+    padding: 12px 18px; border-bottom: 1px solid var(--wp-gray-0);
+    display: grid; grid-template-columns: 1fr auto; gap: 8px 12px; align-items: start;
+  }
+  .test-item:last-child { border-bottom: none; }
+  .test-item .step-text { font-size: 13px; line-height: 1.5; }
+  .radio-group { display: flex; gap: 2px; flex-shrink: 0; }
+  .radio-group label {
+    display: flex; align-items: center; justify-content: center;
+    width: 32px; height: 28px; border-radius: 4px; cursor: pointer;
+    font-size: 14px; border: 1px solid var(--wp-gray-1); background: #fff;
+    transition: background .1s;
+  }
+  .radio-group label:hover { background: var(--wp-gray-0); }
+  .radio-group input { display: none; }
+  .radio-group .r-pass:has(input:checked) { background: #e6f6e9; border-color: var(--pass); color: var(--pass); }
+  .radio-group .r-fail:has(input:checked) { background: #fce4e4; border-color: var(--fail); color: var(--fail); }
+  .radio-group .r-skip:has(input:checked) { background: var(--wp-gray-0); border-color: var(--wp-gray-2); color: var(--wp-gray-5); }
+  .notes-row { grid-column: 1 / -1; }
+  .notes-row textarea {
+    width: 100%; border: 1px solid var(--wp-gray-1); border-radius: 4px;
+    padding: 8px 10px; font-size: 12px; font-family: inherit;
+    resize: vertical; min-height: 32px; line-height: 1.5;
+  }
+  .notes-row textarea:focus { outline: none; border-color: var(--wp-blue); box-shadow: 0 0 0 1px var(--wp-blue); }
+  .notes-row textarea::placeholder { color: var(--wp-gray-2); }
+  .section-notes {
+    padding: 12px 18px; background: var(--wp-gray-0); border-top: 1px solid var(--wp-gray-1);
+  }
+  .section-notes label {
+    display: block; font-size: 12px; font-weight: 600; color: var(--wp-gray-5);
+    text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px;
+  }
+  .section-notes textarea {
+    width: 100%; border: 1px solid var(--wp-gray-1); border-radius: 4px;
+    padding: 8px 10px; font-size: 13px; font-family: inherit;
+    resize: vertical; min-height: 60px;
+  }
+  .section-notes textarea:focus { outline: none; border-color: var(--wp-blue); box-shadow: 0 0 0 1px var(--wp-blue); }
+  .env-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px; padding: 16px 18px;
+  }
+  .env-grid label {
+    display: block; font-size: 12px; font-weight: 600; color: var(--wp-gray-5);
+    text-transform: uppercase; letter-spacing: .03em; margin-bottom: 4px;
+  }
+  .env-grid input, .env-grid select {
+    width: 100%; padding: 7px 10px; border: 1px solid var(--wp-gray-1);
+    border-radius: 4px; font-size: 13px; font-family: inherit;
+  }
+  .env-grid input:focus, .env-grid select:focus { outline: none; border-color: var(--wp-blue); box-shadow: 0 0 0 1px var(--wp-blue); }
+  .output-area { position: relative; }
+  .output-area pre {
+    background: var(--wp-gray-9); color: #e2e4e7; padding: 18px;
+    border-radius: var(--radius); font-size: 12px; line-height: 1.6;
+    overflow-x: auto; white-space: pre-wrap; word-break: break-word;
+    max-height: 500px; overflow-y: auto;
+  }
+  .copy-btn {
+    position: absolute; top: 8px; right: 8px;
+    background: rgba(255,255,255,.15); color: #fff; border: none;
+    padding: 6px 12px; border-radius: 4px; font-size: 12px; cursor: pointer;
+  }
+  .copy-btn:hover { background: rgba(255,255,255,.25); }
+  .copy-btn.copied { background: var(--wp-green); }
+  .progress-bar {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 12px; color: var(--wp-gray-5); padding: 6px 0;
+  }
+  .progress-track {
+    flex: 1; height: 6px; background: var(--wp-gray-1);
+    border-radius: 3px; overflow: hidden; display: flex;
+  }
+  .progress-fill-pass { background: var(--pass); transition: width .3s; }
+  .progress-fill-fail { background: var(--fail); transition: width .3s; }
+  .progress-fill-skip { background: var(--wp-gray-2); transition: width .3s; }
+  .legend { display: flex; gap: 4px; align-items: center; font-size: 11px; color: var(--wp-gray-5); margin-left: auto; }
+  .legend span { padding: 2px 6px; border-radius: 3px; font-weight: 600; }
+  .legend .l-pass { background: #e6f6e9; color: var(--pass); }
+  .legend .l-fail { background: #fce4e4; color: var(--fail); }
+  .legend .l-skip { background: var(--wp-gray-0); color: var(--wp-gray-5); }
+  .tester-field { grid-column: 1 / -1; }
+  .tester-field input { max-width: 400px; }
+  .paste-section { grid-column: 1 / -1; margin-bottom: 4px; }
+  .paste-toggle {
+    font-size: 13px; color: var(--wp-blue); cursor: pointer; background: none;
+    border: none; font-family: inherit; padding: 0; text-decoration: underline;
+  }
+  .paste-toggle:hover { color: var(--wp-blue-dark); }
+  .paste-area {
+    margin-top: 8px; display: none;
+  }
+  .paste-area.open { display: block; }
+  .paste-area textarea {
+    width: 100%; min-height: 120px; border: 1px solid var(--wp-gray-1);
+    border-radius: 4px; padding: 8px 10px; font-size: 12px; font-family: monospace;
+    resize: vertical; line-height: 1.5;
+  }
+  .paste-area textarea:focus { outline: none; border-color: var(--wp-blue); box-shadow: 0 0 0 1px var(--wp-blue); }
+  .paste-area .paste-actions { display: flex; gap: 8px; margin-top: 8px; align-items: center; }
+  .paste-area .paste-hint {
+    font-size: 11px; color: var(--wp-gray-5); margin-top: 6px; line-height: 1.4;
+  }
+  .post-selector { display: flex; gap: 8px; align-items: center; margin-bottom: 16px; }
+  .post-selector label { font-size: 13px; display: flex; align-items: center; gap: 6px; cursor: pointer; }
+  .toast {
+    position: fixed; bottom: 20px; right: 20px;
+    background: var(--wp-gray-9); color: #fff; padding: 12px 20px;
+    border-radius: var(--radius); font-size: 13px;
+    transform: translateY(100px); opacity: 0; transition: all .3s; z-index: 200;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  @media (max-width: 600px) {
+    .env-grid { grid-template-columns: 1fr; }
+    .site-header .inner { flex-direction: column; align-items: flex-start; }
+  }
+  .test-item.focused { background: #f0f6fc; outline: 2px solid var(--wp-blue); outline-offset: -2px; border-radius: 4px; }
+  .bulk-btns { display: inline-flex; gap: 4px; margin-right: 8px; }
+  .bulk-btns button {
+    font-size: 10px; padding: 2px 7px; border: 1px solid var(--wp-gray-2);
+    border-radius: 3px; background: #fff; cursor: pointer; color: var(--wp-gray-5);
+    font-family: inherit; transition: border-color .15s, color .15s;
+  }
+  .bulk-btns button:hover { border-color: var(--wp-blue); color: var(--wp-blue); }
+  .save-indicator {
+    font-size: 11px; color: var(--wp-green); opacity: 0;
+    transition: opacity .3s; margin-left: 4px;
+  }
+  .save-indicator.visible { opacity: 1; }
+  .keyboard-hint {
+    font-size: 11px; color: var(--wp-gray-5); padding: 6px 0 10px;
+    line-height: 1.6; border-bottom: 1px solid var(--wp-gray-1); margin-bottom: 12px;
+  }
+  .keyboard-hint kbd {
+    display: inline-block; padding: 1px 5px; font-size: 10px;
+    font-family: inherit; background: var(--wp-gray-0); border: 1px solid var(--wp-gray-2);
+    border-radius: 3px; color: var(--wp-gray-9); font-weight: 600;
+  }
+  .screenshot-thumb {
+    max-width: 100%; max-height: 200px; display: block; margin-top: 6px;
+    border: 1px solid var(--wp-gray-1); border-radius: 4px; cursor: pointer;
+  }
+  .screenshot-thumb:hover { border-color: var(--wp-blue); box-shadow: 0 0 0 1px var(--wp-blue); }
+  .screenshot-fallback { font-size: 11px; color: var(--wp-gray-5); margin-top: 4px; }
+  .env-autofill { border-color: var(--wp-green) !important; }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="inner">
+    <h1><span>WP 7.0</span> Test Reporter</h1>
+    <div class="header-actions">
+      <button class="btn btn-outline" id="reset-btn">Reset All</button>
+      <button class="btn btn-primary" id="generate-btn">Generate Report</button>
+      <span class="save-indicator" id="save-indicator">Saved</span>
+    </div>
+  </div>
+</header>
+
+<div class="container">
+  <div class="tabs" id="tab-bar"></div>
+
+  <div class="tab-panel active" id="tab-env">
+    <div class="card open">
+      <div class="card-header" style="cursor:default;"><h2>Testing Environment</h2></div>
+      <div class="card-body" style="display:block;">
+        <div style="padding: 12px 18px 0;">
+          <button class="paste-toggle" id="paste-toggle-btn">Paste system info from WordPress Site Health</button>
+          <div class="paste-area" id="paste-area">
+            <textarea id="paste-input" placeholder="Go to WP Admin > Tools > Site Health > Info, click 'Copy site info to clipboard', then paste here..."></textarea>
+            <div class="paste-hint">Supports WordPress Site Health info format. Fields that match will auto-fill below.</div>
+            <div class="paste-actions">
+              <button class="btn btn-primary" id="paste-apply-btn">Apply</button>
+              <button class="btn btn-outline" id="paste-clear-btn" style="color:var(--wp-gray-5);border-color:var(--wp-gray-2);">Clear</button>
+              <span id="paste-status" style="font-size:12px;color:var(--wp-green);display:none;"></span>
+            </div>
+          </div>
+        </div>
+        <div class="env-grid">
+          <div><label for="env-wp">WordPress Version</label><input type="text" id="env-wp" placeholder="7.0-beta1" value="7.0-beta1"></div>
+          <div><label for="env-php">PHP Version</label><input type="text" id="env-php" placeholder="8.3"></div>
+          <div><label for="env-db">Database</label><input type="text" id="env-db" placeholder="MySQL 8.0"></div>
+          <div><label for="env-browser">Browser</label><input type="text" id="env-browser" placeholder="Chrome 133"></div>
+          <div><label for="env-os">Operating System</label><input type="text" id="env-os" placeholder="macOS 15.3"></div>
+          <div><label for="env-theme">Theme</label><input type="text" id="env-theme" placeholder="Twenty Twenty-Five"></div>
+          <div style="grid-column:1/-1;"><label for="env-plugins">Active Plugins</label><textarea id="env-plugins" rows="2" placeholder="None / list plugins" style="width:100%;border:1px solid var(--wp-gray-1);border-radius:4px;padding:7px 10px;font-size:13px;font-family:inherit;resize:vertical;"></textarea></div>
+          <div><label for="env-method">Test Method</label>
+            <select id="env-method">
+              <option value="Playground">Playground</option>
+              <option value="Local (Local app)">Local (Local app)</option>
+              <option value="wp-env">wp-env</option>
+              <option value="Staging site">Staging site</option>
+              <option value="WP-CLI">WP-CLI</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div class="tester-field"><label for="env-tester">Your WordPress.org Username</label><input type="text" id="env-tester" placeholder="@yourname"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-panel" id="tab-post1">
+    <div class="progress-bar">
+      <span id="post1-progress-text">0 of 0 tested</span>
+      <div class="progress-track">
+        <div class="progress-fill-pass" id="post1-pass-bar" style="width:0"></div>
+        <div class="progress-fill-fail" id="post1-fail-bar" style="width:0"></div>
+        <div class="progress-fill-skip" id="post1-skip-bar" style="width:0"></div>
+      </div>
+      <div class="legend"><span class="l-pass">Pass</span><span class="l-fail">Fail</span><span class="l-skip">Skip</span></div>
+    </div>
+    <div class="keyboard-hint">
+      <kbd>J</kbd>/<kbd>K</kbd> navigate steps &middot;
+      <kbd>P</kbd> pass &middot; <kbd>F</kbd> fail &middot; <kbd>S</kbd> skip &middot;
+      <kbd>N</kbd> add note &middot; <kbd>Esc</kbd> unfocus
+    </div>
+    <div id="post1-sections"></div>
+  </div>
+
+  <div class="tab-panel" id="tab-post2">
+    <div class="progress-bar">
+      <span id="post2-progress-text">0 of 0 tested</span>
+      <div class="progress-track">
+        <div class="progress-fill-pass" id="post2-pass-bar" style="width:0"></div>
+        <div class="progress-fill-fail" id="post2-fail-bar" style="width:0"></div>
+        <div class="progress-fill-skip" id="post2-skip-bar" style="width:0"></div>
+      </div>
+      <div class="legend"><span class="l-pass">Pass</span><span class="l-fail">Fail</span><span class="l-skip">Skip</span></div>
+    </div>
+    <div class="keyboard-hint">
+      <kbd>J</kbd>/<kbd>K</kbd> navigate steps &middot;
+      <kbd>P</kbd> pass &middot; <kbd>F</kbd> fail &middot; <kbd>S</kbd> skip &middot;
+      <kbd>N</kbd> add note &middot; <kbd>Esc</kbd> unfocus
+    </div>
+    <div id="post2-sections"></div>
+  </div>
+
+  <div class="tab-panel" id="tab-output">
+    <div class="card open">
+      <div class="card-header" style="cursor:default;"><h2>Generate Comment Markup</h2></div>
+      <div class="card-body" style="display:block; padding: 16px 18px;">
+        <p style="font-size:13px; color:var(--wp-gray-5); margin-bottom:12px;">
+          Select which post you are generating a comment for, then click Generate.
+          The output is WordPress block markup you can paste directly into the comment box.
+        </p>
+        <div class="post-selector">
+          <label><input type="radio" name="output-post" value="post1" checked> Help Test WordPress 7.0</label>
+          <label><input type="radio" name="output-post" value="post2"> Pattern Editing CFT</label>
+          <label><input type="radio" name="output-post" value="both"> Both (combined)</label>
+        </div>
+        <div style="display:flex; gap:8px; margin-bottom:16px;">
+          <button class="btn btn-primary" id="gen-block-btn">Generate Block Markup</button>
+          <button class="btn btn-success" id="gen-plain-btn">Generate Plain Text</button>
+        </div>
+        <div class="output-area" id="output-wrap" style="display:none;">
+          <button class="copy-btn" id="copy-btn">Copy</button>
+          <pre id="output-content"></pre>
+        </div>
+      </div>
+    </div>
+    <div class="card open" style="margin-top:16px;">
+      <div class="card-header" style="cursor:default;"><h2>Save &amp; Import Progress</h2></div>
+      <div class="card-body" style="display:block; padding: 16px 18px;">
+        <p style="font-size:13px; color:var(--wp-gray-5); margin-bottom:12px;">
+          Progress auto-saves to your browser. Export as JSON to back up or share, or import results from a Playwright automation run.
+        </p>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="btn btn-primary" id="export-json-btn">Export Progress (JSON)</button>
+          <button class="btn btn-outline" id="import-json-btn" style="color:var(--wp-gray-5);border-color:var(--wp-gray-2);">Import Results (JSON)</button>
+          <input type="file" id="import-file" accept=".json" style="display:none;">
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const POST1_SECTIONS = [
+  { id: "general-checklist", title: "General Testing Checklist", ticket: null, steps: [
+    "Update WordPress to Beta/RC, enable debugging in wp-config.php, update theme and plugins",
+    "Ensure plugins and themes did not deactivate automatically after the update",
+    "Check WordPress Site Health tool for any new warnings or issues",
+    "Confirm there are no layout breaks or misaligned elements",
+    "Test links and permalinks \u2014 no 404 errors",
+    "Verify posts, images, and media display correctly",
+    "Ensure sitemap and robots.txt files function properly",
+    "Ensure full access to admin dashboard without errors",
+    "If using custom blocks, create content in a new block and edit existing content",
+    "Create a new post: add content, copy-paste text, add media. Save and check console",
+    "Create a new page, add content, check display in different browsers",
+    "Open browser developer console \u2014 check for errors, warnings, or notices",
+    "Open PHP error log \u2014 check for notices, warnings, and fatal errors",
+    "Review user roles and permissions \u2014 confirm they remain intact",
+    "Verify scheduled posts or automated tasks (backups) still function",
+    "Ensure integrated services (payment gateways, analytics) are operational",
+    "Open site in different browsers \u2014 verify all functionalities work",
+    "Check site performance and loading speed after the update",
+    "Verify accessibility basics: keyboard navigation, contrast, screen reader behavior",
+    "Test form submissions (contact forms, checkout, login)",
+    "Confirm media uploads, image editing, and gallery functionality",
+    "Test theme customization settings (Customizer or Site Editor)"
+  ]},
+  { id: "visual-revisions", title: "Visual Revisions", ticket: "#74742", steps: [
+    "Create a new post/page and add Paragraph, Heading, List, Image blocks",
+    "Make several changes and click Update each time (add/remove text, change formatting, add/remove blocks)",
+    "Open the post sidebar (Document/Settings) and click the Revisions link/count",
+    "Confirm you stay in the editor and see a dedicated revisions header and slider",
+    "Move the slider to older and newer revisions \u2014 canvas updates to show selected revision",
+    "Verify current revision is clearly indicated",
+    "Verify added text is highlighted in green with underline",
+    "Verify removed text is highlighted in red with strikethrough",
+    "Verify formatting changes (links, bold) are shown in yellow (outline/underline)",
+    "Confirm changed/added/deleted blocks are visually distinguished from unchanged blocks",
+    "Look for scroll markers showing where changes exist",
+    "Click a scroll marker \u2014 view jumps to the changed area",
+    "Click on blocks in revision view \u2014 can select and inspect but cannot type, add, or move blocks"
+  ]},
+  { id: "font-library", title: "Font Library Support for More Theme Types", ticket: null, steps: [
+    "Install and activate a classic theme (e.g., Twenty Twenty-One)",
+    "Navigate to Appearance \u2192 Fonts \u2014 page should appear even with classic theme",
+    "Verify no UI breakage or missing styles on the Fonts page",
+    "Go to Appearance \u2192 Fonts and upload a supported font file",
+    "Activate the uploaded font \u2014 uploads successfully, appears in library, no console/server errors",
+    "Create/edit a post, add a Paragraph block, open Typography settings \u2192 Font Family",
+    "Select the uploaded font \u2014 appears in dropdown and applied correctly in editor preview",
+    "Publish/update the post and view on frontend \u2014 font displays correctly, no fallback or styling conflicts"
+  ]},
+  { id: "responsive-editing", title: "Responsive Editing Mode", ticket: "#73776", steps: [
+    "Open a page/post in the editor",
+    "Click on a specific block you want to hide for a particular screen size",
+    "Click the three dots in the block toolbar and choose the Hide option",
+    "Select the device type (Desktop, Tablet, or Mobile) where the block should be hidden, then save",
+    "View the page on the frontend \u2014 confirm block is hidden on the selected screen size",
+    "Click the List View icon \u2014 locate the block. A crossed eye icon should indicate hidden status",
+    "Click the block with the crossed eye icon \u2014 Hide Block Settings panel opens for review/adjustment"
+  ]},
+  { id: "admin-improvements", title: "New Admin Improvements", ticket: "#64470", steps: [
+    "Review major admin screens (Dashboard, Posts/Pages, editor, Settings, Media, Plugins/Themes) for visual consistency",
+    "Activate commonly used plugins \u2014 verify admin layouts, buttons, tables, forms display correctly",
+    "Verify core workflows: creating/editing posts, uploading media, updating settings, navigating admin",
+    "Accessibility checks: color contrast, keyboard navigation, focus states, readability, screen reader",
+    "Test responsive admin by resizing browser or on tablet/mobile \u2014 menu collapse, tables, buttons usable",
+    "Observe performance: admin page load time, layout shifts, console errors, delays",
+    "Regression checks: compare with previous WP version (e.g., 6.9 in Playground)"
+  ]},
+  { id: "nav-overlay", title: "Customizable Overlay for Navigation Block", ticket: "#73084", steps: [
+    "Insert a Navigation block on a Template",
+    "Select the Navigation block and look for Settings in the right panel",
+    "Look for Overlay customization controls and create a Custom Overlay",
+    "Preview it in the Editor",
+    "View it on the Frontend in mobile view"
+  ]},
+  { id: "real-time-collab", title: "Real-time Collaboration", ticket: "#52593", steps: [
+    "Install WP 7.0 Beta on a server reachable by another person",
+    "Navigate to Settings > Writing and toggle on Enable real-time collaboration",
+    "Open a post for editing, invite a collaborator to edit the same post",
+    "Verify real-time collaboration works throughout the session",
+    "Check for disconnections or unresponsiveness that interrupts work",
+    "Check for content loss or duplication",
+    "Test collaboration on custom blocks",
+    "Test collaboration inside a plugin UI",
+    "Test collaboration in the site editor",
+    "Test collaboration on a large document",
+    "Test collaboration with more than two users",
+    "Test RTC accessibility: keyboard-only navigation",
+    "Test RTC accessibility: with a screen reader",
+    "Test RTC accessibility: on a mobile device"
+  ]},
+  { id: "new-blocks", title: "New Blocks: Icon, Breadcrumbs, Tabs", ticket: null, steps: [
+    "Open a post/page and insert the Icon block \u2014 try out the available options",
+    "Open a hierarchical post (like a page) and insert the Breadcrumbs block",
+    "Toggle the option to show the Home link \u2014 does it show up?",
+    "Toggle the Home link off \u2014 does it work correctly?",
+    "Experiment with choosing separator options for Breadcrumbs",
+    "Open a post and insert the Tabs block",
+    "Click the Tabs button to add tabs",
+    "Add content to tabs \u2014 almost any block should work",
+    "View the frontend: click on tabs to make sure they open/close",
+    "Check content in every open tab \u2014 layout maintained? Everything there?"
+  ]},
+  { id: "block-updates", title: "Block Updates: Gallery Lightbox, Cover Video, Grid Controls", ticket: null, steps: [
+    "Test the Gallery block lightbox feature for switching between images",
+    "Test the Cover block with an external video source",
+    "Test the Grid block with new controls"
+  ]},
+  { id: "client-media", title: "Client-side Media Processing", ticket: null, steps: [
+    "Upload images and verify client-side resizing/compression works in browser",
+    "Test with different image formats (JPEG, PNG, WebP, AVIF if supported)",
+    "Compare upload behavior with previous WordPress versions"
+  ]}
+];
+
+const POST2_SECTIONS = [
+  { id: "p2-scenario1", title: "Scenario 1: Editing content inside a pattern as a user", ticket: null, steps: [
+    "In site/post editor, insert an unsynced pattern containing paragraph text and an image",
+    "Open List View (Ctrl+Option+O) \u2014 only the pattern content blocks should be visible",
+    "Edit the paragraph and/or replace the image. Pressing Enter should create a new paragraph",
+    "Select the pattern and click Edit pattern button in toolbar or block inspector sidebar",
+    "Verify you can modify the content block styles or delete the block entirely",
+    "Try clicking on (or inserting) a structural block (e.g., Group block for layout)",
+    "Assess: Is it clear which content you can and cannot edit?",
+    "Assess: Is the overall experience less confusing than before?",
+    "Assess: Did you accidentally break anything?"
+  ]},
+  { id: "p2-scenario2", title: "Scenario 2: Synced pattern / template part structural editing", ticket: null, steps: [
+    "Open a template with a template part (e.g., Blog homepage with Footer template part)",
+    "Open List View (Ctrl+Option+O) \u2014 only the template part content blocks should be visible",
+    "Click Edit original on the pattern or template part",
+    "Verify the isolated editor opens with a breadcrumb showing your location",
+    "Make a structural change (add or remove a block)",
+    "Use the Back button \u2014 confirm you return to the originating document",
+    "Assess: Is the navigation between document and pattern editor clear?",
+    "Assess: Does Back return you to the right place?",
+    "Assess: Are breadcrumbs helpful?"
+  ]},
+  { id: "p2-scenario3", title: "Scenario 3: Testing with custom blocks or patterns", ticket: null, steps: [
+    "Register a custom block with role: content attributes \u2014 test if accessible in content-only mode",
+    "Register a custom unsynced pattern and insert it \u2014 confirm it enters content-only mode by default",
+    "Try the disableContentOnlyForUnsyncedPatterns opt-out via PHP filter \u2014 confirm unrestricted editing restored",
+    "Check that template parts and synced pattern views remain unchanged regardless of opt-out setting",
+    "Assess: Does role: content behave as expected for your block attributes?",
+    "Assess: Are there blocks that should be editable in content-only mode but are not?",
+    "Assess: Does the opt-out work reliably?"
+  ]},
+  { id: "p2-scenario4", title: "Scenario 4: Edge cases and multi-block patterns", ticket: null, steps: [
+    "Insert a pattern containing Buttons, List, Gallery or Social Icons \u2014 verify items can be selected/edited",
+    "Test with nested patterns (a pattern inside a pattern)",
+    "Try undoing and redoing edits made inside content-only mode",
+    "Test multi-selecting blocks that span inside and outside a pattern",
+    "Assess: Does anything break or behave unexpectedly?",
+    "Assess: Are there patterns in the pattern library unusable in content-only mode?"
+  ]}
+];
+
+// ---- Safe DOM helpers ----
+function el(tag, attrs, children) {
+  const node = document.createElement(tag);
+  if (attrs) {
+    Object.entries(attrs).forEach(function(pair) {
+      var k = pair[0], v = pair[1];
+      if (k === 'textContent') { node.textContent = v; }
+      else if (k === 'className') { node.className = v; }
+      else if (k.startsWith('on')) { node.addEventListener(k.slice(2).toLowerCase(), v); }
+      else if (k.startsWith('data-')) { node.setAttribute(k, v); }
+      else { node.setAttribute(k, v); }
+    });
+  }
+  if (children) {
+    (Array.isArray(children) ? children : [children]).forEach(function(c) {
+      if (typeof c === 'string') node.appendChild(document.createTextNode(c));
+      else if (c) node.appendChild(c);
+    });
+  }
+  return node;
+}
+
+// ---- Build tabs ----
+var tabBar = document.getElementById('tab-bar');
+[['env','Environment'],['post1','General & Features'],['post2','Pattern Editing'],['output','Output']].forEach(function(t, i) {
+  var btn = el('button', { className: 'tab' + (i === 0 ? ' active' : ''), 'data-tab': t[0] }, [t[1]]);
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.tab').forEach(function(tb) { tb.classList.remove('active'); });
+    document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
+    btn.classList.add('active');
+    document.getElementById('tab-' + t[0]).classList.add('active');
+  });
+  tabBar.appendChild(btn);
+});
+
+// ---- Render test sections ----
+function renderSections(sections, containerId) {
+  var container = document.getElementById(containerId);
+  sections.forEach(function(section) {
+    var card = el('div', { className: 'card', 'data-section-id': section.id });
+    // Header
+    var headerRight = el('div', { style: 'display:flex;align-items:center;gap:8px;' });
+    var badge = el('span', { className: 'badge badge-pending', 'data-badge': section.id }, ['0/' + section.steps.length]);
+    var chevron = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    chevron.setAttribute('class', 'chevron');
+    chevron.setAttribute('width', '16');
+    chevron.setAttribute('height', '16');
+    chevron.setAttribute('viewBox', '0 0 16 16');
+    chevron.setAttribute('fill', 'currentColor');
+    var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', 'M4.47 5.47a.75.75 0 011.06 0L8 7.94l2.47-2.47a.75.75 0 111.06 1.06l-3 3a.75.75 0 01-1.06 0l-3-3a.75.75 0 010-1.06z');
+    chevron.appendChild(path);
+    headerRight.appendChild(badge);
+    headerRight.appendChild(chevron);
+
+    var titleText = section.title;
+    if (section.ticket) titleText += ' (' + section.ticket + ')';
+    var h2 = el('h2', {}, [titleText]);
+    var header = el('div', { className: 'card-header' }, [h2, headerRight]);
+    header.addEventListener('click', function() { card.classList.toggle('open'); });
+
+    // Body
+    var body = el('div', { className: 'card-body' });
+    section.steps.forEach(function(step, i) {
+      var item = el('div', { className: 'test-item' });
+      var stepText = el('div', { className: 'step-text' }, [(i + 1) + '. ' + step]);
+      var radioGroup = el('div', { className: 'radio-group' });
+
+      [['pass', 'r-pass', '\u2713'], ['fail', 'r-fail', '\u2717'], ['skip', 'r-skip', '\u2014']].forEach(function(r) {
+        var lbl = el('label', { className: r[1], title: r[0].charAt(0).toUpperCase() + r[0].slice(1) });
+        var inp = el('input', { type: 'radio', name: section.id + '-' + i, value: r[0] });
+        inp.addEventListener('change', updateProgress);
+        var span = el('span', {}, [r[2]]);
+        lbl.appendChild(inp);
+        lbl.appendChild(span);
+        radioGroup.appendChild(lbl);
+      });
+
+      var notesRow = el('div', { className: 'notes-row' });
+      var ta = el('textarea', { rows: '1', placeholder: 'Notes (optional)...', 'data-note': section.id + '-' + i });
+      notesRow.appendChild(ta);
+
+      item.appendChild(stepText);
+      item.appendChild(radioGroup);
+      item.appendChild(notesRow);
+      body.appendChild(item);
+    });
+
+    // Section notes
+    var snDiv = el('div', { className: 'section-notes' });
+    var snLabel = el('label', {}, ['Overall section notes']);
+    var snTa = el('textarea', { rows: '2', placeholder: 'General observations for this section...', 'data-section-note': section.id });
+    snDiv.appendChild(snLabel);
+    snDiv.appendChild(snTa);
+    body.appendChild(snDiv);
+
+    card.appendChild(header);
+    card.appendChild(body);
+    container.appendChild(card);
+  });
+}
+
+renderSections(POST1_SECTIONS, 'post1-sections');
+renderSections(POST2_SECTIONS, 'post2-sections');
+
+// ---- Progress ----
+function updateProgress() {
+  updateProgressFor(POST1_SECTIONS, 'post1');
+  updateProgressFor(POST2_SECTIONS, 'post2');
+}
+
+function updateProgressFor(sections, prefix) {
+  var totalSteps = 0, pass = 0, fail = 0, skip = 0;
+  sections.forEach(function(section) {
+    var sp = 0, sf = 0, ss = 0;
+    section.steps.forEach(function(_, i) {
+      totalSteps++;
+      var checked = document.querySelector('input[name="' + section.id + '-' + i + '"]:checked');
+      if (checked) {
+        if (checked.value === 'pass') { pass++; sp++; }
+        else if (checked.value === 'fail') { fail++; sf++; }
+        else if (checked.value === 'skip') { skip++; ss++; }
+      }
+    });
+    var badge = document.querySelector('[data-badge="' + section.id + '"]');
+    var done = sp + sf + ss;
+    badge.textContent = done + '/' + section.steps.length;
+    badge.className = 'badge ' + (
+      sf > 0 ? 'badge-fail' :
+      done === section.steps.length && sp === done ? 'badge-pass' :
+      done > 0 ? 'badge-mixed' : 'badge-pending'
+    );
+  });
+  var tested = pass + fail + skip;
+  document.getElementById(prefix + '-progress-text').textContent = tested + ' of ' + totalSteps + ' tested';
+  var pct = totalSteps > 0 ? 100 / totalSteps : 0;
+  document.getElementById(prefix + '-pass-bar').style.width = (pass * pct) + '%';
+  document.getElementById(prefix + '-fail-bar').style.width = (fail * pct) + '%';
+  document.getElementById(prefix + '-skip-bar').style.width = (skip * pct) + '%';
+}
+updateProgress();
+
+// ---- Collect ----
+function collectResults(sections) {
+  return sections.map(function(section) {
+    var stepResults = section.steps.map(function(step, i) {
+      var checked = document.querySelector('input[name="' + section.id + '-' + i + '"]:checked');
+      var noteEl = document.querySelector('[data-note="' + section.id + '-' + i + '"]');
+      return { step: step, result: checked ? checked.value : null, note: noteEl ? noteEl.value.trim() : '' };
+    });
+    var snEl = document.querySelector('[data-section-note="' + section.id + '"]');
+    return { id: section.id, title: section.title, ticket: section.ticket, steps: section.steps, stepResults: stepResults, sectionNote: snEl ? snEl.value.trim() : '' };
+  });
+}
+
+function getEnv() {
+  return {
+    wp: document.getElementById('env-wp').value.trim(),
+    php: document.getElementById('env-php').value.trim(),
+    db: document.getElementById('env-db').value.trim(),
+    browser: document.getElementById('env-browser').value.trim(),
+    os: document.getElementById('env-os').value.trim(),
+    theme: document.getElementById('env-theme').value.trim(),
+    plugins: document.getElementById('env-plugins').value.trim(),
+    method: document.getElementById('env-method').value,
+    tester: document.getElementById('env-tester').value.trim()
+  };
+}
+
+function esc(str) {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// ---- Generate block markup ----
+function generateBlockMarkup() {
+  var postChoice = document.querySelector('input[name="output-post"]:checked').value;
+  var env = getEnv();
+  var lines = [];
+
+  lines.push('<!-- wp:heading {"level":2} -->');
+  lines.push('<h2 class="wp-block-heading">Testing Report</h2>');
+  lines.push('<!-- /wp:heading -->');
+  lines.push('');
+  lines.push('<!-- wp:heading {"level":3} -->');
+  lines.push('<h3 class="wp-block-heading">Environment</h3>');
+  lines.push('<!-- /wp:heading -->');
+  lines.push('');
+  lines.push('<!-- wp:list -->');
+  lines.push('<ul class="wp-block-list">');
+  if (env.wp) lines.push('<li><strong>WordPress:</strong> ' + esc(env.wp) + '</li>');
+  if (env.php) lines.push('<li><strong>PHP:</strong> ' + esc(env.php) + '</li>');
+  if (env.db) lines.push('<li><strong>Database:</strong> ' + esc(env.db) + '</li>');
+  if (env.browser) lines.push('<li><strong>Browser:</strong> ' + esc(env.browser) + '</li>');
+  if (env.os) lines.push('<li><strong>OS:</strong> ' + esc(env.os) + '</li>');
+  if (env.theme) lines.push('<li><strong>Theme:</strong> ' + esc(env.theme) + '</li>');
+  if (env.plugins) lines.push('<li><strong>Plugins:</strong> ' + esc(env.plugins) + '</li>');
+  lines.push('<li><strong>Test method:</strong> ' + esc(env.method) + '</li>');
+  lines.push('</ul>');
+  lines.push('<!-- /wp:list -->');
+  lines.push('');
+
+  if (postChoice === 'post1' || postChoice === 'both') {
+    addSectionsMarkup(lines, collectResults(POST1_SECTIONS), 'Help Test WordPress 7.0');
+  }
+  if (postChoice === 'post2' || postChoice === 'both') {
+    addSectionsMarkup(lines, collectResults(POST2_SECTIONS), 'Pattern Editing &amp; Content-Only Interactivity');
+  }
+
+  var output = lines.join('\n');
+  document.getElementById('output-content').textContent = output;
+  document.getElementById('output-wrap').style.display = 'block';
+}
+
+function addSectionsMarkup(lines, results, groupTitle) {
+  if (groupTitle) {
+    lines.push('<!-- wp:heading {"level":3} -->');
+    lines.push('<h3 class="wp-block-heading">' + groupTitle + '</h3>');
+    lines.push('<!-- /wp:heading -->');
+    lines.push('');
+  }
+
+  results.forEach(function(section) {
+    var tested = section.stepResults.filter(function(s) { return s.result !== null; });
+    if (tested.length === 0 && !section.sectionNote) return;
+
+    var passes = tested.filter(function(s) { return s.result === 'pass'; }).length;
+    var fails = tested.filter(function(s) { return s.result === 'fail'; }).length;
+    var skips = tested.filter(function(s) { return s.result === 'skip'; }).length;
+    var statusIcon = fails > 0 ? '\uD83D\uDD34' : (passes === tested.length && passes > 0 ? '\uD83D\uDFE2' : '\uD83D\uDFE1');
+
+    lines.push('<!-- wp:heading {"level":4} -->');
+    lines.push('<h4 class="wp-block-heading">' + statusIcon + ' ' + esc(section.title) + '</h4>');
+    lines.push('<!-- /wp:heading -->');
+    lines.push('');
+    lines.push('<!-- wp:paragraph -->');
+    lines.push('<p><strong>Results:</strong> ' + passes + ' passed, ' + fails + ' failed, ' + skips + ' skipped out of ' + section.steps.length + ' steps</p>');
+    lines.push('<!-- /wp:paragraph -->');
+    lines.push('');
+
+    var itemsToShow = section.stepResults.filter(function(s) { return s.result !== null; });
+    if (itemsToShow.length > 0) {
+      lines.push('<!-- wp:list -->');
+      lines.push('<ul class="wp-block-list">');
+      itemsToShow.forEach(function(s) {
+        var icon = s.result === 'pass' ? '\u2705' : s.result === 'fail' ? '\u274C' : '\u2796';
+        var line = '<li>' + icon + ' ' + esc(s.step);
+        if (s.note) line += ' \u2014 <em>' + esc(s.note) + '</em>';
+        line += '</li>';
+        lines.push(line);
+      });
+      lines.push('</ul>');
+      lines.push('<!-- /wp:list -->');
+      lines.push('');
+    }
+
+    if (section.sectionNote) {
+      lines.push('<!-- wp:paragraph -->');
+      lines.push('<p><strong>Notes:</strong> ' + esc(section.sectionNote) + '</p>');
+      lines.push('<!-- /wp:paragraph -->');
+      lines.push('');
+    }
+  });
+}
+
+// ---- Generate plaintext ----
+function generatePlaintext() {
+  var postChoice = document.querySelector('input[name="output-post"]:checked').value;
+  var env = getEnv();
+  var lines = [];
+
+  lines.push('## Testing Report');
+  lines.push('');
+  lines.push('### Environment');
+  if (env.wp) lines.push('- WordPress: ' + env.wp);
+  if (env.php) lines.push('- PHP: ' + env.php);
+  if (env.db) lines.push('- Database: ' + env.db);
+  if (env.browser) lines.push('- Browser: ' + env.browser);
+  if (env.os) lines.push('- OS: ' + env.os);
+  if (env.theme) lines.push('- Theme: ' + env.theme);
+  if (env.plugins) lines.push('- Plugins: ' + env.plugins);
+  lines.push('- Test method: ' + env.method);
+  lines.push('');
+
+  if (postChoice === 'post1' || postChoice === 'both') {
+    addSectionsPlaintext(lines, collectResults(POST1_SECTIONS));
+  }
+  if (postChoice === 'post2' || postChoice === 'both') {
+    addSectionsPlaintext(lines, collectResults(POST2_SECTIONS));
+  }
+
+  document.getElementById('output-content').textContent = lines.join('\n');
+  document.getElementById('output-wrap').style.display = 'block';
+}
+
+function addSectionsPlaintext(lines, results) {
+  results.forEach(function(section) {
+    var tested = section.stepResults.filter(function(s) { return s.result !== null; });
+    if (tested.length === 0 && !section.sectionNote) return;
+
+    var passes = tested.filter(function(s) { return s.result === 'pass'; }).length;
+    var fails = tested.filter(function(s) { return s.result === 'fail'; }).length;
+    var skips = tested.filter(function(s) { return s.result === 'skip'; }).length;
+
+    lines.push('### ' + section.title);
+    lines.push('Results: ' + passes + ' passed, ' + fails + ' failed, ' + skips + ' skipped / ' + section.steps.length + ' total');
+    lines.push('');
+
+    section.stepResults.forEach(function(s) {
+      if (s.result === null) return;
+      var icon = s.result === 'pass' ? '[PASS]' : s.result === 'fail' ? '[FAIL]' : '[SKIP]';
+      var line = icon + ' ' + s.step;
+      if (s.note) line += ' \u2014 ' + s.note;
+      lines.push(line);
+    });
+
+    if (section.sectionNote) {
+      lines.push('');
+      lines.push('Notes: ' + section.sectionNote);
+    }
+    lines.push('');
+  });
+}
+
+// ---- Event listeners ----
+document.getElementById('generate-btn').addEventListener('click', function() {
+  document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
+  document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
+  document.querySelector('[data-tab="output"]').classList.add('active');
+  document.getElementById('tab-output').classList.add('active');
+  generateBlockMarkup();
+});
+
+document.getElementById('gen-block-btn').addEventListener('click', generateBlockMarkup);
+document.getElementById('gen-plain-btn').addEventListener('click', generatePlaintext);
+
+document.getElementById('copy-btn').addEventListener('click', function() {
+  var btn = this;
+  var text = document.getElementById('output-content').textContent;
+  navigator.clipboard.writeText(text).then(function() {
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+  });
+});
+
+// ---- Paste system info ----
+document.getElementById('paste-toggle-btn').addEventListener('click', function() {
+  document.getElementById('paste-area').classList.toggle('open');
+});
+
+document.getElementById('paste-clear-btn').addEventListener('click', function() {
+  document.getElementById('paste-input').value = '';
+  var status = document.getElementById('paste-status');
+  status.style.display = 'none';
+});
+
+document.getElementById('paste-apply-btn').addEventListener('click', function() {
+  var raw = document.getElementById('paste-input').value;
+  if (!raw.trim()) return;
+  var filled = parseSiteHealth(raw);
+  var status = document.getElementById('paste-status');
+  status.textContent = filled + ' field' + (filled !== 1 ? 's' : '') + ' filled';
+  status.style.display = 'inline';
+  setTimeout(function() { status.style.display = 'none'; }, 4000);
+});
+
+function parseSiteHealth(text) {
+  var filled = 0;
+  var lines = text.split('\n');
+  var currentSection = '';
+  var activePlugins = [];
+  var inActivePlugins = false;
+  var inTheme = false;
+  var theme = '';
+
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i];
+    var trimmed = line.trim();
+
+    // Detect section headers: ### wp-core ###, ### wp-plugins-active (66) ###
+    var sectionMatch = trimmed.match(/^###\s+(.+?)\s+###$/);
+    if (sectionMatch) {
+      currentSection = sectionMatch[1].replace(/\s*\(\d+\)\s*$/, '').trim().toLowerCase();
+      // Only capture active plugins, not inactive
+      inActivePlugins = currentSection === 'wp-plugins-active';
+      // Only active theme, not inactive themes list
+      inTheme = currentSection === 'wp-active-theme';
+      continue;
+    }
+
+    // Skip empty lines and tab-indented sub-values
+    if (!trimmed || line.startsWith('\t\t')) continue;
+
+    // In active plugins section, capture plugin names
+    // Real format: "Plugin Name: version: X.Y.Z, author: Author, Auto-updates enabled"
+    if (inActivePlugins) {
+      if (trimmed === 'None') continue;
+      // Strip everything from ": version:" onward to get the name
+      var pluginName = trimmed.replace(/:\s*version:.*$/i, '').trim();
+      // Also handle "Name (version)" fallback format
+      pluginName = pluginName.replace(/\s*\([^)]*\)\s*$/, '').trim();
+      if (pluginName) activePlugins.push(pluginName);
+      continue;
+    }
+
+    // Parse key: value pairs (use first colon only)
+    var colonIdx = trimmed.indexOf(':');
+    if (colonIdx === -1) continue;
+
+    var key = trimmed.substring(0, colonIdx).trim().toLowerCase();
+    var val = trimmed.substring(colonIdx + 1).trim();
+    if (!val) continue;
+
+    // WordPress version (in wp-core section)
+    if (key === 'version' && currentSection.indexOf('core') !== -1) {
+      if (setField('env-wp', val)) filled++;
+    }
+
+    // PHP version: handles "php_version", "php version", "PHP version"
+    if (key === 'php_version' || key === 'php version') {
+      // Strip trailing info like "64bit"
+      if (setField('env-php', val.replace(/\s+\d+bit$/i, ''))) filled++;
+    }
+
+    // Database: "extension" + "server_version" in wp-database section
+    if (currentSection.indexOf('database') !== -1) {
+      if (key === 'extension') {
+        // Store extension name, will be combined with version if found
+        var dbExt = val;
+        // Look ahead for server_version
+        for (var j = i + 1; j < lines.length && j < i + 5; j++) {
+          var nextLine = lines[j].trim();
+          if (nextLine.startsWith('###')) break;
+          var nci = nextLine.indexOf(':');
+          if (nci !== -1) {
+            var nk = nextLine.substring(0, nci).trim().toLowerCase();
+            var nv = nextLine.substring(nci + 1).trim();
+            if (nk === 'server_version' || nk === 'server version') {
+              if (setField('env-db', dbExt + ' ' + nv)) filled++;
+              break;
+            }
+          }
+        }
+      }
+      if ((key === 'server_version' || key === 'server version') && !document.getElementById('env-db').value.trim()) {
+        if (setField('env-db', val)) filled++;
+      }
+    }
+
+    // OS: "server_architecture" or "operating system"
+    if (key === 'server_architecture' || key === 'server architecture' || key === 'operating system' || key === 'os') {
+      // Extract OS name from architecture string like "Linux 5.14.0-611... x86_64"
+      var osVal = val;
+      // Simplify kernel version strings
+      var osMatch = osVal.match(/^(Linux|Darwin|Windows)\s+(\S+)/);
+      if (osMatch) {
+        osVal = osMatch[1] + ' ' + osMatch[2].split('-')[0];
+      }
+      if (setField('env-os', osVal)) filled++;
+    }
+
+    // Active theme section
+    if (inTheme) {
+      if (key === 'name') {
+        // Strip slug in parens: "Ollie (ollie)" -> "Ollie"
+        theme = val.replace(/\s*\([^)]*\)\s*$/, '').trim();
+      }
+      if (key === 'version' && theme) {
+        if (setField('env-theme', theme + ' ' + val)) filled++;
+        theme = '';
+      }
+    }
+  }
+
+  // Set theme if we found a name but no version followed
+  if (theme) {
+    if (setField('env-theme', theme)) filled++;
+  }
+
+  // Set plugins — show count + names
+  if (activePlugins.length > 0) {
+    var unique = [];
+    activePlugins.forEach(function(p) {
+      p = p.replace(/^\s*[-*]\s*/, '').trim();
+      if (p && unique.indexOf(p) === -1) unique.push(p);
+    });
+    if (unique.length > 0) {
+      if (setField('env-plugins', unique.length + ' active: ' + unique.join(', '))) filled++;
+    }
+  }
+
+  return filled;
+}
+
+function setField(id, value) {
+  var field = document.getElementById(id);
+  if (!field) return false;
+  if (field.value.trim() && field.value.trim() !== field.placeholder) return false; // don't overwrite existing
+  field.value = value;
+  return true;
+}
+
+function parseUserAgent(ua) {
+  if (ua.indexOf('Firefox') !== -1) {
+    var m = ua.match(/Firefox\/([\d.]+)/);
+    return m ? 'Firefox ' + m[1] : 'Firefox';
+  }
+  if (ua.indexOf('Edg/') !== -1) {
+    var m = ua.match(/Edg\/([\d.]+)/);
+    return m ? 'Edge ' + m[1] : 'Edge';
+  }
+  if (ua.indexOf('Chrome') !== -1) {
+    var m = ua.match(/Chrome\/([\d.]+)/);
+    return m ? 'Chrome ' + m[1] : 'Chrome';
+  }
+  if (ua.indexOf('Safari') !== -1) {
+    var m = ua.match(/Version\/([\d.]+)/);
+    return m ? 'Safari ' + m[1] : 'Safari';
+  }
+  return '';
+}
+
+document.getElementById('reset-btn').addEventListener('click', function() {
+  if (!confirm('Reset all test results and notes?')) return;
+  document.querySelectorAll('input[type="radio"]').forEach(function(r) { r.checked = false; });
+  document.querySelectorAll('textarea').forEach(function(t) { t.value = ''; });
+  document.getElementById('output-wrap').style.display = 'none';
+  updateProgress();
+  try { localStorage.removeItem(STORAGE_KEY); } catch(e) {}
+  var toast = document.getElementById('toast');
+  toast.textContent = 'All results cleared';
+  toast.classList.add('show');
+  setTimeout(function() { toast.classList.remove('show'); }, 3000);
+});
+
+// ---- Auto-save / restore (localStorage) ----
+var STORAGE_KEY = 'wp7-test-reporter-state';
+
+function saveState() {
+  var state = { env: getEnv(), results: {}, sectionNotes: {}, savedAt: new Date().toISOString() };
+  document.querySelectorAll('input[type="radio"]:checked').forEach(function(r) {
+    state.results[r.name] = r.value;
+  });
+  document.querySelectorAll('[data-note]').forEach(function(ta) {
+    if (ta.value.trim()) state.results[ta.getAttribute('data-note') + '__note'] = ta.value;
+  });
+  document.querySelectorAll('[data-section-note]').forEach(function(ta) {
+    if (ta.value.trim()) state.sectionNotes[ta.getAttribute('data-section-note')] = ta.value;
+  });
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    showSaveIndicator();
+  } catch(e) {}
+}
+
+function restoreState() {
+  try {
+    var json = localStorage.getItem(STORAGE_KEY);
+    if (!json) return;
+    var state = JSON.parse(json);
+    if (state.env) {
+      ['wp','php','db','browser','os','theme','method','tester'].forEach(function(k) {
+        var field = document.getElementById('env-' + k);
+        if (field && state.env[k]) field.value = state.env[k];
+      });
+      if (state.env.plugins) document.getElementById('env-plugins').value = state.env.plugins;
+    }
+    if (state.results) {
+      Object.keys(state.results).forEach(function(key) {
+        if (key.endsWith('__note')) {
+          var noteEl = document.querySelector('[data-note="' + key.replace(/__note$/, '') + '"]');
+          if (noteEl) noteEl.value = state.results[key];
+        } else {
+          var radio = document.querySelector('input[name="' + key + '"][value="' + state.results[key] + '"]');
+          if (radio) radio.checked = true;
+        }
+      });
+    }
+    if (state.sectionNotes) {
+      Object.keys(state.sectionNotes).forEach(function(key) {
+        var ta = document.querySelector('[data-section-note="' + key + '"]');
+        if (ta) ta.value = state.sectionNotes[key];
+      });
+    }
+    updateProgress();
+  } catch(e) {}
+}
+
+function showSaveIndicator() {
+  var ind = document.getElementById('save-indicator');
+  ind.classList.add('visible');
+  clearTimeout(ind._timer);
+  ind._timer = setTimeout(function() { ind.classList.remove('visible'); }, 2000);
+}
+
+// Auto-save on any change
+document.addEventListener('change', function(e) {
+  if (e.target.type === 'radio' || e.target.tagName === 'SELECT') saveState();
+});
+document.addEventListener('input', function(e) {
+  if (e.target.tagName === 'TEXTAREA' || (e.target.tagName === 'INPUT' && e.target.type === 'text')) {
+    clearTimeout(saveState._debounce);
+    saveState._debounce = setTimeout(saveState, 1000);
+  }
+});
+
+// ---- Keyboard navigation ----
+var focusedStep = null;
+
+function getVisibleStepItems() {
+  var activePanel = document.querySelector('.tab-panel.active');
+  if (!activePanel) return [];
+  return Array.from(activePanel.querySelectorAll('.test-item'));
+}
+
+function setFocusedStep(item) {
+  if (focusedStep) focusedStep.classList.remove('focused');
+  focusedStep = item;
+  if (item) {
+    item.classList.add('focused');
+    item.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }
+}
+
+document.addEventListener('keydown', function(e) {
+  var tag = e.target.tagName;
+  if (tag === 'TEXTAREA' || tag === 'SELECT') return;
+  if (tag === 'INPUT' && e.target.type === 'text') return;
+
+  var items = getVisibleStepItems();
+  if (items.length === 0) return;
+  var idx = focusedStep ? items.indexOf(focusedStep) : -1;
+
+  switch(e.key.toLowerCase()) {
+    case 'j': case 'arrowdown':
+      e.preventDefault();
+      var next = idx < items.length - 1 ? idx + 1 : 0;
+      setFocusedStep(items[next]);
+      // Auto-expand parent card if collapsed
+      var card = items[next].closest('.card');
+      if (card && !card.classList.contains('open')) card.classList.add('open');
+      break;
+    case 'k': case 'arrowup':
+      e.preventDefault();
+      var prev = idx > 0 ? idx - 1 : items.length - 1;
+      setFocusedStep(items[prev]);
+      var card = items[prev].closest('.card');
+      if (card && !card.classList.contains('open')) card.classList.add('open');
+      break;
+    case 'p':
+      if (!focusedStep) break;
+      e.preventDefault();
+      var r = focusedStep.querySelector('input[value="pass"]');
+      if (r) { r.checked = true; r.dispatchEvent(new Event('change', {bubbles:true})); }
+      // Auto-advance
+      if (idx < items.length - 1) setFocusedStep(items[idx + 1]);
+      break;
+    case 'f':
+      if (!focusedStep) break;
+      e.preventDefault();
+      var r = focusedStep.querySelector('input[value="fail"]');
+      if (r) { r.checked = true; r.dispatchEvent(new Event('change', {bubbles:true})); }
+      // Stay on fail (user likely wants to add a note)
+      break;
+    case 's':
+      if (!focusedStep) break;
+      e.preventDefault();
+      var r = focusedStep.querySelector('input[value="skip"]');
+      if (r) { r.checked = true; r.dispatchEvent(new Event('change', {bubbles:true})); }
+      if (idx < items.length - 1) setFocusedStep(items[idx + 1]);
+      break;
+    case 'n':
+      if (!focusedStep) break;
+      e.preventDefault();
+      var ta = focusedStep.querySelector('.notes-row textarea');
+      if (ta) ta.focus();
+      break;
+    case 'escape':
+      setFocusedStep(null);
+      break;
+  }
+});
+
+// ---- Bulk actions per section ----
+function addBulkActions() {
+  document.querySelectorAll('.card[data-section-id]').forEach(function(card) {
+    var header = card.querySelector('.card-header');
+    var rightSide = header.querySelector('div');
+    if (!rightSide) return;
+
+    var bulkDiv = el('div', { className: 'bulk-btns' });
+
+    var passBtn = el('button', { textContent: 'All Pass', title: 'Mark all steps as Pass' });
+    passBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      card.querySelectorAll('input[value="pass"]').forEach(function(r) { r.checked = true; });
+      updateProgress(); saveState();
+    });
+
+    var skipBtn = el('button', { textContent: 'All Skip', title: 'Mark all steps as Skip' });
+    skipBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      card.querySelectorAll('input[value="skip"]').forEach(function(r) { r.checked = true; });
+      updateProgress(); saveState();
+    });
+
+    var clearBtn = el('button', { textContent: 'Clear', title: 'Clear all results in this section' });
+    clearBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      card.querySelectorAll('input[type="radio"]').forEach(function(r) { r.checked = false; });
+      updateProgress(); saveState();
+    });
+
+    bulkDiv.appendChild(passBtn);
+    bulkDiv.appendChild(skipBtn);
+    bulkDiv.appendChild(clearBtn);
+    rightSide.insertBefore(bulkDiv, rightSide.firstChild);
+  });
+}
+
+// ---- Import / Export JSON ----
+function exportState() {
+  var state = {
+    version: 1, tool: 'wp7-test-reporter', env: getEnv(),
+    results: {}, sectionNotes: {}, exportedAt: new Date().toISOString()
+  };
+  document.querySelectorAll('input[type="radio"]:checked').forEach(function(r) {
+    state.results[r.name] = { result: r.value };
+    var noteEl = document.querySelector('[data-note="' + r.name + '"]');
+    if (noteEl && noteEl.value.trim()) state.results[r.name].note = noteEl.value.trim();
+  });
+  // Also capture notes for untested steps
+  document.querySelectorAll('[data-note]').forEach(function(ta) {
+    var key = ta.getAttribute('data-note');
+    if (ta.value.trim() && !state.results[key]) {
+      state.results[key] = { result: null, note: ta.value.trim() };
+    }
+  });
+  document.querySelectorAll('[data-section-note]').forEach(function(ta) {
+    if (ta.value.trim()) state.sectionNotes[ta.getAttribute('data-section-note')] = ta.value.trim();
+  });
+  var blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'wp7-test-results-' + new Date().toISOString().slice(0,10) + '.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function importStateData(state) {
+  var isAutomated = state.automated === true;
+  if (state.env) {
+    ['wp','php','db','browser','os','theme','method','tester'].forEach(function(k) {
+      var field = document.getElementById('env-' + k);
+      if (field && state.env[k]) {
+        field.value = state.env[k];
+        if (isAutomated) { field.classList.add('env-autofill'); field.title = 'Auto-filled from REST API'; }
+      }
+    });
+    if (state.env.plugins) {
+      var pluginsField = document.getElementById('env-plugins');
+      pluginsField.value = state.env.plugins;
+      if (isAutomated) { pluginsField.classList.add('env-autofill'); pluginsField.title = 'Auto-filled from REST API'; }
+    }
+  }
+  var imported = 0;
+  var screenshots = 0;
+  if (state.results) {
+    Object.keys(state.results).forEach(function(key) {
+      var val = state.results[key];
+      var result = typeof val === 'string' ? val : (val && val.result);
+      var note = (typeof val === 'object' && val) ? val.note : null;
+      var screenshotPath = (typeof val === 'object' && val) ? val.screenshot : null;
+      if (result) {
+        var radio = document.querySelector('input[name="' + key + '"][value="' + result + '"]');
+        if (radio) { radio.checked = true; imported++; }
+      }
+      if (note) {
+        var noteEl = document.querySelector('[data-note="' + key + '"]');
+        if (noteEl) noteEl.value = note;
+      }
+      if (screenshotPath) {
+        screenshots++;
+        var noteEl = document.querySelector('[data-note="' + key + '"]');
+        if (noteEl && noteEl.parentElement) {
+          var existing = noteEl.parentElement.querySelector('.screenshot-thumb, .screenshot-fallback');
+          if (!existing) {
+            var img = el('img', { 'class': 'screenshot-thumb', src: screenshotPath, alt: 'Screenshot: ' + key });
+            img.onerror = function() {
+              this.style.display = 'none';
+              var fb = el('span', { 'class': 'screenshot-fallback' });
+              fb.textContent = 'Screenshot: ' + screenshotPath;
+              this.parentElement.appendChild(fb);
+            };
+            img.onclick = function() { window.open(this.src, '_blank'); };
+            noteEl.parentElement.appendChild(img);
+          }
+        }
+      }
+    });
+  }
+  if (state.sectionNotes) {
+    Object.keys(state.sectionNotes).forEach(function(key) {
+      var ta = document.querySelector('[data-section-note="' + key + '"]');
+      if (ta) ta.value = state.sectionNotes[key];
+    });
+  }
+  updateProgress(); saveState();
+  var msg = imported + ' test results imported';
+  if (screenshots > 0) msg += ', ' + screenshots + ' screenshots';
+  if (state.env && state.env.wp) msg += ' (WP ' + state.env.wp + ')';
+  showToast(msg);
+}
+
+function showToast(msg) {
+  var toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  setTimeout(function() { toast.classList.remove('show'); }, 3000);
+}
+
+document.getElementById('export-json-btn').addEventListener('click', exportState);
+document.getElementById('import-json-btn').addEventListener('click', function() {
+  document.getElementById('import-file').click();
+});
+document.getElementById('import-file').addEventListener('change', function(e) {
+  var file = e.target.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(ev) {
+    try {
+      var state = JSON.parse(ev.target.result);
+      importStateData(state);
+    } catch(err) { alert('Invalid JSON file: ' + err.message); }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+});
+
+// ---- Initialize ----
+addBulkActions();
+restoreState();
+</script>
+</body>
+</html>
