@@ -6,6 +6,7 @@ The test steps are based on the Make WordPress Test team's call for testing:
 
 - [Help Test WordPress 7.0](https://make.wordpress.org/test/2026/02/20/help-test-wordpress-7-0/)
 - [Test Scrub Schedule for WordPress 7.0](https://make.wordpress.org/test/2026/02/17/test-scrub-schedule-for-wordpress-7-0/)
+- [Call for Testing: Pattern Editing and Content-Only Interactivity in WordPress 7.0](https://make.wordpress.org/test/2026/02/27/call-for-testing-pattern-editing-and-content-only-interactivity-in-wordpress-7-0/)
 
 ## Quick start
 
